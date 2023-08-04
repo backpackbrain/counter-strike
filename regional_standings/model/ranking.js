@@ -12,12 +12,12 @@ const Table = require('./table');
 const remapValueClamped = require('./util/remap_value_clamped');
 
 const SEED_MODIFIER_FACTORS = {
-    bountyCollected: 1,
-    bountyOffered: 1,
-    opponentNetwork: 1,
-    //ownNetwork: 1,
+    //bountyCollected: 1, //as below
+    //bountyOffered: 1, //originally not commented out
+    opponentNetwork: 15,//changed from 1 to 15
+    //ownNetwork: 1,//originally this was commented out
 };
-const MIN_SEEDED_RANK = 400;
+const MIN_SEEDED_RANK = 100;//from 400 to 100
 const MAX_SEEDED_RANK = 1000;
 
 function generateRanking( versionTimestamp = -1)
@@ -43,7 +43,7 @@ function generateRanking( versionTimestamp = -1)
     teams.forEach( team => { team.rankValue = team.glickoTeam.rank(); } );
 
     // Remove rosters with no wins from the standings
-    teams = teams.filter( t => t.distinctTeamsDefeated > 0 );
+    //teams = teams.filter( t => t.distinctTeamsDefeated > 0 ); // Not necessary to remove teams that have no wins from the standings if they are still playing matches
 
     return [matches,teams];
 }

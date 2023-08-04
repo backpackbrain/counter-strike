@@ -143,7 +143,12 @@ class Team {
     
             // Also calculate winnings
             team.eventMap.forEach( teamEvent => {
-                team.scaledPrizePool += teamEvent.getTeamWinnings() * context.getTimestampModifier( teamEvent.event.lastMatchTime );
+                let lanModifier = 1;
+                if(teamEvent.event.lan == false)
+                {
+                    lanModifier = 0.2;
+                } 
+                team.scaledPrizePool += teamEvent.getTeamWinnings() * context.getTimestampModifier( teamEvent.event.lastMatchTime ) * lanModifier;//added lanModifier
             } );
 
         } );
@@ -165,18 +170,25 @@ class Team {
             // Bounties (and your opponents' networks) are 'buckets' that fill up as you win matches.
             // Bounties/Networks are scaled by the stakes (i.e., prize pool) of the event where they occur and the age of the result
             // We only consider the top N best outcomes, post-scaling. So there's never any harm in playing in a low-stakes match.
-            let bucketSize = 10;
+            let bucketSize = 15;///from 10 to 15
             let bounties = [];
             let network = [];
 
             team.wonMatches.forEach( teamMatch => {
                 let timestampModifier = context.getTimestampModifier( teamMatch.match.matchStartTime );
                 let prizepool = Math.max(1, teamMatch.team.eventMap.get( teamMatch.match.eventId ).event.prizePool);
-                let stakesModifier = curveFunction( Math.min( prizepool / 1000000, 1 ) ); //prizepool of the event is curved the same as a bounty.
-                let matchModifier = timestampModifier * stakesModifier;
+                let stakesModifier = curveFunction( Math.min( prizepool / 4000000, 1 ) ); //prizepool of the event is curved the same as a bounty. //changed 1 to 4 reducing prize pools impact
+
+                let lanModifier = 1;
+                if(teamMatch.team.eventMap.get( teamMatch.match.eventId ).event.lan == false)
+                {
+                    lanModifier = 0.2;
+                }
+                
+                let matchModifier = timestampModifier * stakesModifier * lanModifier;//added lanModifier
 
                 bounties.push( teamMatch.opponent.winnings * matchModifier );
-                network.push( teamMatch.opponent.teamsDefeated * matchModifier );
+                network.push( teamMatch.opponent.teamsDefeated * timestampModifier *  lanModifier);//removing matchmodifier replacing it with timestamp and lan modifiers, not including prize pool in network
             } );
     
             bounties.sort( (a,b) => b - a );
