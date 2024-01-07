@@ -12,13 +12,14 @@ const Table = require('./table');
 const remapValueClamped = require('./util/remap_value_clamped');
 
 const SEED_MODIFIER_FACTORS = {
-    //bountyCollected: 1, //as below
-    //bountyOffered: 1, //originally not commented out
-    opponentNetwork: 15,//changed from 1 to 15
-    //ownNetwork: 1,//originally this was commented out
+    bountyCollected: 1,
+    bountyOffered: 1,
+    opponentNetwork: 1,
+    ownNetwork: 0,
+    lanFactor: 1
 };
-const MIN_SEEDED_RANK = 100;//from 400 to 100
-const MAX_SEEDED_RANK = 1000;
+const MIN_SEEDED_RANK = 400;
+const MAX_SEEDED_RANK = 2000;
 
 function generateRanking( versionTimestamp = -1)
 {
@@ -43,7 +44,7 @@ function generateRanking( versionTimestamp = -1)
     teams.forEach( team => { team.rankValue = team.glickoTeam.rank(); } );
 
     // Remove rosters with no wins from the standings
-    //teams = teams.filter( t => t.distinctTeamsDefeated > 0 ); // Not necessary to remove teams that have no wins from the standings if they are still playing matches
+    teams = teams.filter( t => t.distinctTeamsDefeated > 0 );
 
     return [matches,teams];
 }
@@ -55,13 +56,13 @@ function displayRankings( teams, regions = [0,1,2] ) {
     let sortedTeams = [...teams].sort((a, b) => b.rankValue - a.rankValue);
 
     table.addNumericColumn( 'Standing' );
-    table.addNumericColumn( 'Points' ).setPrecision(0)
+    table.addNumericColumn( 'Points' ).setPrecision(0);
     table.addColumn( 'Team Name' ).setMinWidth(12);
     table.addColumn( 'Roster' );
 
     var dispRank = 0;
     sortedTeams.forEach((t, idx) => {
-		if (t.matchesPlayed >= 5 && regions.some(r => r === t.region) ) {
+		if (t.matchesPlayed >= 10 && regions.some(r => r === t.region) ) {
 
 			dispRank += 1;
             table.addElem( dispRank );
@@ -89,7 +90,7 @@ function seedTeams( glicko, teams ) {
     
     teams.forEach( team => {
         team.rankValue = remapValueClamped( team.seedValue, minSeedValue, maxSeedValue, MIN_SEEDED_RANK, MAX_SEEDED_RANK );
-
+        
         // Save off original rank
         team.rankValueSeed = team.rankValue;
 
@@ -121,7 +122,7 @@ function runMatches( glicko, matches ) {
         let team2 = match.team2;
 
         let [winTeam, loseTeam] = ( match.winningTeam === 1) ? [team1,team2] : [team2,team1];
-        glicko.singleMatch( winTeam.glickoTeam, loseTeam.glickoTeam, match.informationContent );
+        glicko.singleMatch( winTeam, loseTeam, match.informationContent, match.eventId );
     } );
 }
 

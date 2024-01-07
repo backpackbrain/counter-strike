@@ -8,8 +8,8 @@ class RankingContext {
         this.topOutlierCount = 10;          // teams with at least as good performance as the 10th best team get the same modifiers
         this.timeWindowStart = null;
         this.timeWindowEnd = null;
-        this.timeDecayFactor = 1.5;           // default to linear; <1 gives more weight to matches in the past, >1 gives less. //from 1 to 1.5
-        this.highValueEventModifier = 2;    // extra weight placed on RMR/major events. //from 1 to 2
+        this.timeDecayFactor = 1;           // default to linear; <1 gives more weight to matches in the past, >1 gives less.
+        this.highValueEventModifier = 1;    // extra weight placed on RMR/major events.
     }
     
     // set window of times for getTimestampModifier
@@ -34,11 +34,7 @@ class RankingContext {
         this.topOutlierCount = nth;
         return this;
     }
-    getPrizePoolNth()
-    {
-        return this.topOutlierCount;
-    }
-    getDistinctOpponentNth()
+    getOutlierCount()
     {
         return this.topOutlierCount;
     }

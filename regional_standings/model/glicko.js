@@ -1,5 +1,7 @@
 "use strict";
 
+const ranking = require("./ranking");
+
 // rank delta of 400 points = 90% chance of victory
 const Q = Math.log(10) / 400;
 
@@ -64,13 +66,17 @@ class GlickoTeam
     }
     
     // Apply any pending rating adjustments
-    applyPendingMatches( glicko )
-    {
+    applyPendingMatches( glicko, team, matchEventId )
+    {   
+        
         const rd = this.mRD;
         const adjustedRDSq = 1 / (1/(rd*rd) + Q*Q*this.mAdjRDSq);
+        const testfixRDSq = 1 / (1/(75*75) + Q*Q*this.mAdjRDSq);
 
         this.mRank += Q*adjustedRDSq*this.mAdjRank;
         this.mRD = glicko.clampRD( Math.sqrt( adjustedRDSq ) );
+
+        team.eventMap.get(matchEventId).incrementTeamPoints(Q*testfixRDSq*this.mAdjRank*ranking.calculateSeedModifierValue(team.modifiers));
 
         this.resetPendingMatches();
     }
@@ -142,21 +148,21 @@ class Glicko
         losingTeam.addPendingMatch( winningTeam, 0.0, informationContent );
     }
 
-    finalizeMatches( teams )
+    finalizeMatches( teams, matchEventId )
     {
         for( const team of teams )
         {
-            team.applyPendingMatches( this );
+            team.glickoTeam.applyPendingMatches(this, team, matchEventId );
         }
     }
 
     // informationContent scales the 'value' of the information in this match;
     // If the information content of the match is low, pass a lower content
     // and the rankings won't be as affected.
-    singleMatch( winningTeam, losingTeam, informationContent = 1.0 )
+    singleMatch( winningTeam, losingTeam, informationContent = 1.0, matchEventId )
     {
-        this.incrementalMatch( winningTeam, losingTeam, informationContent );
-        this.finalizeMatches( [winningTeam, losingTeam] );
+        this.incrementalMatch( winningTeam.glickoTeam, losingTeam.glickoTeam, informationContent);
+        this.finalizeMatches( [winningTeam, losingTeam] , matchEventId);
     }
 }
 
