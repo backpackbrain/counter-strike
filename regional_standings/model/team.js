@@ -11,6 +11,20 @@ class TeamEvent {
 
         let prizeEntry = event.prizeDistributionByTeamId[teamId];
         this.winnings = ( prizeEntry === undefined ) ? 0 : prizeEntry.prize;
+
+        this.points = 0;
+    }
+
+    setTeamPoints(points){
+        this.points = points;
+    }
+
+    incrementTeamPoints(inc){
+        this.points = this.points + inc;
+    }
+
+    getTeamPoints(){
+        return this.points;
     }
 
     getTeamWinnings() {
@@ -121,6 +135,7 @@ class Team {
             team.lastPlayed = Math.max( ...team.teamMatches.map( teamMatch => teamMatch.match.matchStartTime ) );
             team.distinctTeamsDefeated = 0;
             team.scaledPrizePool = 0;
+            team.lanWins = 0;
 
             // Calculate the most recent match against each opponent
             // We are going to use this to discount the prestige factor if you haven't defeated a team recently.
@@ -143,25 +158,27 @@ class Team {
     
             // Also calculate winnings
             team.eventMap.forEach( teamEvent => {
-                let lanModifier = 1;
-                if(teamEvent.event.lan == false)
-                {
-                    lanModifier = 0.2;
-                } 
-                team.scaledPrizePool += teamEvent.getTeamWinnings() * context.getTimestampModifier( teamEvent.event.lastMatchTime ) * lanModifier;//added lanModifier
+                team.scaledPrizePool += teamEvent.getTeamWinnings() * context.getTimestampModifier( teamEvent.event.lastMatchTime );
             } );
 
+            // Also calculate wins on LAN
+            team.wonMatches.forEach( wonMatch => {
+                let lan = wonMatch.team.eventMap.get( wonMatch.match.eventId ).event.lan;
+                team.lanWins += ( lan ? 1 : 0 ) * context.getTimestampModifier( wonMatch.match.matchStartTime );
+            })
         } );
 
         // Phase 2 relies on the data from *all* teams in phase 1 being calculated.
         // we want to know relative data -- such as whether this team's winnings are representative
         // of the top teams in the world, or if a team has beaten a typical number of opponents.
-        let referencePrizePool     = nthHighest( teams.map( t => t.scaledPrizePool ), context.getPrizePoolNth() );
-        let referenceOpponentCount = nthHighest( teams.map( t => t.distinctTeamsDefeated ), context.getDistinctOpponentNth() );
+        let referencePrizePool     = nthHighest( teams.map( t => t.scaledPrizePool ), context.getOutlierCount() );
+        let referenceOpponentCount = nthHighest( teams.map( t => t.distinctTeamsDefeated ), context.getOutlierCount() );
+        let referenceLanWins       = nthHighest( teams.map( t => t.lanWins ), context.getOutlierCount() );
 
         teams.forEach( team => {
             team.winnings = Math.min( team.scaledPrizePool / referencePrizePool, 1 );
             team.teamsDefeated = Math.min( team.distinctTeamsDefeated / referenceOpponentCount, 1 );
+            team.lanParticipation = Math.min( team.lanWins / referenceLanWins, 1 );
         } );
 
         // Phase 3 looks at each team's opponents and rates each team highly if it can regularly win against other prestigous teams.
@@ -170,32 +187,25 @@ class Team {
             // Bounties (and your opponents' networks) are 'buckets' that fill up as you win matches.
             // Bounties/Networks are scaled by the stakes (i.e., prize pool) of the event where they occur and the age of the result
             // We only consider the top N best outcomes, post-scaling. So there's never any harm in playing in a low-stakes match.
-            let bucketSize = 15;///from 10 to 15
+            let bucketSize = 10;
             let bounties = [];
             let network = [];
 
             team.wonMatches.forEach( teamMatch => {
                 let timestampModifier = context.getTimestampModifier( teamMatch.match.matchStartTime );
                 let prizepool = Math.max(1, teamMatch.team.eventMap.get( teamMatch.match.eventId ).event.prizePool);
-                let stakesModifier = curveFunction( Math.min( prizepool / 4000000, 1 ) ); //prizepool of the event is curved the same as a bounty. //changed 1 to 4 reducing prize pools impact
-
-                let lanModifier = 1;
-                if(teamMatch.team.eventMap.get( teamMatch.match.eventId ).event.lan == false)
-                {
-                    lanModifier = 0.2;
-                }
-                
-                let matchModifier = timestampModifier * stakesModifier * lanModifier;//added lanModifier
+                let stakesModifier = curveFunction( Math.min( prizepool / 1000000, 1 ) ); //prizepool of the event is curved the same as a bounty.
+                let matchModifier = timestampModifier * stakesModifier;
 
                 bounties.push( teamMatch.opponent.winnings * matchModifier );
-                network.push( teamMatch.opponent.teamsDefeated * timestampModifier *  lanModifier);//removing matchmodifier replacing it with timestamp and lan modifiers, not including prize pool in network
+                network.push( teamMatch.opponent.teamsDefeated * matchModifier );
             } );
     
             bounties.sort( (a,b) => b - a );
-            team.opponentWinnings = bounties.slice(0,(bucketSize - 1)).reduce( (a,b) => a + b, 0 ) / bucketSize;
+            team.opponentWinnings = bounties.slice(0,bucketSize).reduce( (a,b) => a + b, 0 ) / bucketSize;
 
             network.sort( (a,b) => b - a );
-            team.opponentVictories = network.slice(0,(bucketSize - 1)).reduce( (a,b) => a + b, 0 ) / bucketSize;
+            team.opponentVictories = network.slice(0,bucketSize).reduce( (a,b) => a + b, 0 ) / bucketSize;
         } );
 
         // Finally, build modifiers from calculated values
@@ -205,6 +215,7 @@ class Team {
             team.modifiers.bountyOffered    = curveFunction( team.winnings );
             team.modifiers.opponentNetwork  = powerFunction( team.opponentVictories );
             team.modifiers.ownNetwork       = powerFunction( team.teamsDefeated );
+            team.modifiers.lanFactor        = powerFunction( team.lanParticipation );
         } );
     }
 }

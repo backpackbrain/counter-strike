@@ -33,6 +33,23 @@ function run()
     Ranking.displayRankings( teams, regions );
     console.log( '' );
     console.log( '_Event data for Regional Standings provided by HLTV.org_' );
+
+    teams.forEach((team) => {
+        console.log(team.name);
+        team.eventMap.forEach((v, k) => {
+            console.log(v.event.name + ' ' + v.getTeamPoints());
+        });
+    });
+
+    /*
+    for (t in teams){
+        console.log(t.name);
+        for (v in t.eventMap.values()){
+            console.log(v.event.name + ' ' + v.getTeamPoints());
+        }
+    }
+    */
+
 }
 
 run();

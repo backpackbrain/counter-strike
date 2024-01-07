@@ -81,6 +81,7 @@ function initTeams( matches, events, rankingContext ) {
     matches.forEach( match => {
         match.team1 = insertTeam( match.team1Name, match.team1Players );
         match.team2 = insertTeam( match.team2Name, match.team2Players );
+
         match.team1.accumulateMatch( match );
         match.team2.accumulateMatch( match );
 
@@ -103,15 +104,7 @@ function initTeams( matches, events, rankingContext ) {
 
 function calculateMatchInformationContent( match, rankingContext, events ){
     let informationContent = 1.0;
-    
-    
-    let event = events[match.eventId];
-    let lanModifier = 1.0;
-    if (event.lan == true){//added lanmodifier which makes lan matches carry 1.5x more info than online ones
-        lanModifier = 1.5;
-    }
-    informationContent *= rankingContext.getTimestampModifier( match.matchStartTime ) * lanModifier;
-    
+    informationContent *= rankingContext.getTimestampModifier( match.matchStartTime );
 
     return informationContent;
 }
